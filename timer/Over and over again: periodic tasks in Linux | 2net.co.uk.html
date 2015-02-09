@@ -1,0 +1,656 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html class="js" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" dir="ltr" lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="shortcut icon" href="http://www.2net.co.uk/sites/default/files/favicon.ico" type="image/x-icon">
+<meta name="description" content="It is very common for real-time applications to have tasks that need to run periodically, for example to scan inputs or to generate regular outputs. A crude solution is to use a processing loop with a sleep at the end, but the periodicity will vary as the execution time varies. To create accurate periodic tasks you need to use timers.">
+<link rel="canonical" href="http://www.2net.co.uk/tutorial/periodic_threads">
+<meta name="revisit-after" content="1 day">
+    <title>Over and over again: periodic tasks in Linux | 2net.co.uk</title>
+    <link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/codefilter.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/mollom.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/node.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/defaults.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/system.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/system-menus.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/tagadelic.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/user.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/views.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/comment.css">
+<link type="text/css" rel="stylesheet" media="all" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/style.css">
+<link type="text/css" rel="stylesheet" media="print" href="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/print.css">
+    <script src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/ga.js" async="" type="text/javascript"></script><script type="text/javascript" src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/jquery.js"></script>
+<script type="text/javascript" src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/drupal.js"></script>
+<script type="text/javascript" src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/googleanalytics.js"></script>
+<script type="text/javascript" src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/comment.js"></script>
+<script type="text/javascript" src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/mollom.js"></script>
+<script type="text/javascript" src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/textarea.js"></script>
+<script type="text/javascript">
+<!--//--><![CDATA[//><!--
+jQuery.extend(Drupal.settings, { "basePath": "/", "googleanalytics": { "trackOutbound": 1, "trackMailto": 1, "trackDownload": 1, "trackDownloadExtensions": "7z|aac|arc|arj|asf|asx|avi|bin|csv|doc|exe|flv|gif|gz|gzip|hqx|jar|jpe?g|js|mp(2|3|4|e?g)|mov(ie)?|msi|msp|pdf|phps|png|ppt|qtm?|ra(m|r)?|sea|sit|tar|tgz|torrent|txt|wav|wma|wmv|wpd|xls|xml|z|zip" }, "mollomPathPrefix": "" });
+//--><!]]>
+</script>
+    <!--[if lt IE 7]>
+      <link type="text/css" rel="stylesheet" media="all" href="/themes/garland/fix-ie.css" />    <![endif]-->
+  </head>
+  <body class="sidebar-right">
+
+<!-- Layout -->
+  <div id="header-region" class="clear-block"></div>
+
+    <div id="wrapper">
+    <div id="container" class="clear-block">
+
+      <div id="header">
+        <div id="logo-floater">
+        <h1><a href="http://www.2net.co.uk/" title="Training for embedded Linux and Android"><img src="Over%20and%20over%20again:%20periodic%20tasks%20in%20Linux%20%7C%202net.co.uk_files/garland_logo.png" alt="Training for embedded Linux and Android" id="logo"><span>Training for embedded Linux and Android</span></a></h1>        </div>
+
+                  <ul class="links primary-links"><li class="menu-158 first"><a href="http://www.2net.co.uk/welcome" title="Link to the home page">Home</a></li>
+<li class="menu-135"><a href="http://www.2net.co.uk/training.html" title="Training">Training</a></li>
+<li class="menu-134"><a href="http://www.2net.co.uk/consult/2net" title="Consulting">Consulting</a></li>
+<li class="menu-183"><a href="http://www.2net.co.uk/videos" title="Videos">Videos</a></li>
+<li class="menu-181"><a href="http://www.2net.co.uk/blog" title="Blog">Blog</a></li>
+<li class="menu-191 last"><a href="http://www.2net.co.uk/contact" title="Contact">Contact</a></li>
+</ul>                                  
+      </div> <!-- /header -->
+
+      
+      <div id="center"><div id="squeeze"><div class="right-corner"><div class="left-corner">
+          <div class="breadcrumb"><a href="http://www.2net.co.uk/">Home</a></div>                              <h2>Over and over again: periodic tasks in Linux</h2>                                                  <div class="clear-block">
+            <div id="node-9" class="node">
+
+
+
+      <span class="submitted">Fri, 09/25/2009 - 17:03 — csimmonds</span>
+  
+  <div class="content clear-block">
+    <p>It is very common for real-time applications to have tasks that 
+need to run periodically, for example to scan inputs or to generate 
+regular outputs. A crude solution is to use a processing loop with a 
+sleep at the end, but the periodicity will vary as the execution time 
+varies. To create accurate periodic tasks you need to use timers. In 
+this article I will show how timers work in Linux, especially with 
+regard to multi-threaded applications.</p>
+<p>Linux has several different timer interfaces, acquired over many 
+years. Which to use depends on the  versions of the kernel and C library
+ you have. If you are using GNU libc 2.8 and kernel 2.6.25 or later, the
+ timerfd interface is the best. If you are using GNU libc 2.3 and any 
+version of the 2.6 kernel, the POSIX timers interface works well. If you
+ are using uClibc you should use setitimer. I have examples of all three
+ below.</p>
+<p>In the examples I have separated out the timer code into two functions, <i>make_periodic</i> and  <i>wait_period</i>:</p>
+<div class="codeblock"><code>
+<pre>struct periodic_info
+{
+	/* Opaque data */
+};
+
+int make_periodic (unsigned int period, struct periodic_info *info);
+void wait_period (struct periodic_info *info);
+</pre><p></p></code></div>
+<p>You call <i>make_periodic</i> at the start of the thread giving the period in microseconds and then call <i>wait_period</i> when execution is complete. This is inspired by RTAI <a href="#ref_1">[1]</a>
+ which has functions rt_task_make_periodic and rt_task_wait_period to do
+ the same thing. To show you what I mean, here is an example of a thread
+ with a period of 10 ms:</p>
+<div class="codeblock"><code>
+<pre>void *thread_1 (void *arg)
+{
+	struct periodic_info info;
+
+	make_periodic (10000, &amp;info);
+	while (1)
+	{
+		/* Do useful work */
+		wait_period (&amp;info);
+	}
+	return NULL;
+}
+</pre><p></p></code></div>
+<h2>Using timerfd<br>
+</h2>
+<p>The timerfd interface is a Linux-specific set of functions that  
+present POSIX timers as file descriptors (hence the fd) rather than 
+signals thus avoiding all that tedious messing about with signal 
+handlers. It was first implemented in GNU libc 2.8 and kernel 2.6.25: if
+ you have them I highly recommend this approach.</p>
+<p>You create a timer by calling timerfd_create() giving the POSIX clock
+ id CLOCK_REALTIME or CLOCK_MONOTONIC. For periodic timers such as we 
+are creating it does not matter which you choose. For absolute timers 
+the expiry time is changed if the system clock is changed and the clock 
+is CLOCK_REALTIME. In almost all cases, CLOCK_MONOTONIC is the one to 
+use. timerfd_create returns a file descriptor for the timer.</p>
+<p>To set the timer running, call timerfd_settime() giving flag =  
+TFD_TIMER_ABSTIME for an absolute timer or 0 for relative, as we want 
+here, and the period in seconds and nanoseconds. To wait for the timer 
+to expire, read from its file descriptor. It always returns an unsigned 
+ long long (8 byte unsigned integer) representing the number of timer 
+events since the last read, which should be one if all is going well. If
+ it is more than one then some events have been missed. In my example 
+below I keep a record in "wakeups_missed".</p>
+<div class="codeblock"><code>
+<pre>#include <sys timerfd.h="">
+
+struct periodic_info
+{
+	int timer_fd;
+	unsigned long long wakeups_missed;
+};
+
+static int make_periodic (unsigned int period, struct periodic_info *info)
+{
+	int ret;
+	unsigned int ns;
+	unsigned int sec;
+	int fd;
+	struct itimerspec itval;
+
+	/* Create the timer */
+	fd = timerfd_create (CLOCK_MONOTONIC, 0);
+	info-&gt;wakeups_missed = 0;
+	info-&gt;timer_fd = fd;
+	if (fd == -1)
+		return fd;
+
+	/* Make the timer periodic */
+	sec = period/1000000;
+	ns = (period - (sec * 1000000)) * 1000;
+	itval.it_interval.tv_sec = sec;
+	itval.it_interval.tv_nsec = ns;
+	itval.it_value.tv_sec = sec;
+	itval.it_value.tv_nsec = ns;
+	ret = timerfd_settime (fd, 0, &amp;itval, NULL);
+	return ret;
+}
+
+static void wait_period (struct periodic_info *info)
+{
+	unsigned long long missed;
+	int ret;
+
+	/* Wait for the next timer event. If we have missed any the
+	   number is written to "missed" */
+	ret = read (info-&gt;timer_fd, &amp;missed, sizeof (missed));
+	if (ret == -1)
+	{
+		perror ("read timer");
+		return;
+	}
+
+	/* "missed" should always be &gt;= 1, but just to be sure, check it is not 0 anyway */
+	if (missed &gt; 0)
+		info-&gt;wakeups_missed += (missed - 1);
+}
+</sys></pre><p></p></code></div>
+<h2>Using POSIX timers</h2>
+<p>If your glibc or kernel doesn't support timerfd, then you will have 
+to use POSIX timers to generate signals and wait for the signal to 
+arrive to indicate the start of the next period. This causes problems 
+because signals are sent to the process not the thread. If you have 
+several periodic threads, and therefore several timers, in a process 
+each one must use a different signal to tell them apart. The obvious 
+signals to use are the real time signals from SIGRTMIN (33) to SIGRTMAX 
+(64), so you cannot have more than 32 timers per process. Note <i>per process</i>: it is perfectly acceptable to have 32 other timers in another process.</p>
+<p>The way to wait for a signal to arrive is to block it and then call 
+sigwait(). Here is another complication: although signals are sent to 
+the parent process, each thread has its own signal mask. I will write 
+another article on the reasons it is done this way, but in this case it 
+has the implication that all the real time signals must be blocked 
+before creating any threads so that they all inherit the same mask. 
+Doing it any other way risks the race condition where the signal is 
+delivered before all threads have blocked it, resulting in the process 
+being killed.</p>
+<p>You can detect missed timer events using the function 
+timer_getoverrun (), which returns zero if none were missed. Here is the
+ code:</p>
+<div class="codeblock"><code>
+<pre>struct periodic_info
+{
+	int sig;
+	sigset_t alarm_sig;
+	int wakeups_missed;
+};
+
+static int make_periodic (int unsigned period, struct periodic_info *info)
+{
+	static int next_sig;
+	int ret;
+	unsigned int ns;
+	unsigned int sec;
+	struct sigevent sigev;
+	timer_t timer_id;
+	struct itimerspec itval;
+
+	/* Initialise next_sig first time through. We can't use static
+	   initialisation because SIGRTMIN is a function call, not a constant */
+	if (next_sig == 0)
+		next_sig = SIGRTMIN;
+	/* Check that we have not run out of signals */
+	if (next_sig &gt; SIGRTMAX)
+		return -1;
+	info-&gt;sig = next_sig;
+	next_sig++;
+
+	info-&gt;wakeups_missed = 0;
+
+	/* Create the signal mask that will be used in wait_period */
+	sigemptyset (&amp;(info-&gt;alarm_sig));
+	sigaddset (&amp;(info-&gt;alarm_sig), info-&gt;sig);
+
+	/* Create a timer that will generate the signal we have chosen */
+	sigev.sigev_notify = SIGEV_SIGNAL;
+	sigev.sigev_signo = info-&gt;sig;
+	sigev.sigev_value.sival_ptr = (void *) &amp;timer_id;
+	ret = timer_create (CLOCK_MONOTONIC, &amp;sigev, &amp;timer_id);
+	if (ret == -1)
+		return ret;
+
+	/* Make the timer periodic */
+	sec = period/1000000;
+	ns = (period - (sec * 1000000)) * 1000;
+	itval.it_interval.tv_sec = sec;
+	itval.it_interval.tv_nsec = ns;
+	itval.it_value.tv_sec = sec;
+	itval.it_value.tv_nsec = ns;
+	ret = timer_settime (timer_id, 0, &amp;itval, NULL);
+	return ret;
+}
+
+static void wait_period (struct periodic_info *info)
+{
+	int sig;
+	sigwait (&amp;(info-&gt;alarm_sig), &amp;sig);
+        info-&gt;wakeups_missed += timer_getoverrun (info-&gt;timer_id);
+}
+
+int main(int argc, char *argv[])
+{
+	sigset_t alarm_sig;
+	int i;
+
+	/* Block all real time signals so they can be used for the timers.
+	   Note: this has to be done in main() before any threads are created
+	   so they all inherit the same mask. Doing it later is subject to
+	   race conditions */
+	sigemptyset (&amp;alarm_sig);
+	for (i = SIGRTMIN; i &lt;= SIGRTMAX; i++)
+		sigaddset (&amp;alarm_sig, i);
+	sigprocmask (SIG_BLOCK, &amp;alarm_sig, NULL);
+</pre><p></p></code></div>
+<h2>Using setitimer<br>
+</h2>
+<p>This ONLY works if you are using uClibc. Actually the real 
+determinant is that you are using the Linux Threads library rather than 
+the Native POSIX Threads Library. With very few exceptions, uClibc uses 
+Linux Threads, glibc uses NPTL.</p>
+<p>Using setitimer is somewhat similar to POSIX clocks except that it is
+ hard coded to deliver a SIGALRM at the end of each period. Using NPTL 
+that means that you can only have one periodic task per process, but 
+with Linux Threads each thread IS a process so that is fine: you can 
+have as many periodic threads as you like. </p>
+<p>Setitimer is part of the base POSIX specification and has been 
+present in Linux since the year dot. The time out is passed in a  struct
+ itimerval which contains an initial time out, it_value, and a periodic 
+time out in it_interval which is reloaded into it_value every time it 
+expires. At each expiry it sends a SIGALRM. The times are given in 
+microseconds which will be rounded up the the granularity of your timers
+ if they are greater than 1 us. The best way to handle the signal is to 
+block it and then wait for the next one with sigwait() as shown below. 
+There is no easy way to detect missed timer events.</p>
+<p>Here is the code:</p>
+<div class="codeblock"><code>
+<pre>struct periodic_info
+{
+	sigset_t alarm_sig;
+};
+
+static int make_periodic (unsigned int period, struct periodic_info *info)
+{
+	int ret;
+	struct itimerval value;
+
+	/* Block SIGALRM in this thread */
+	sigemptyset (&amp;(info-&gt;alarm_sig));
+	sigaddset (&amp;(info-&gt;alarm_sig), SIGALRM);
+	pthread_sigmask (SIG_BLOCK, &amp;(info-&gt;alarm_sig), NULL);
+
+	/* Set the timer to go off after the first period and then
+	   repetitively */
+	value.it_value.tv_sec = period/1000000;
+	value.it_value.tv_usec = period%1000000;
+	value.it_interval.tv_sec = period/1000000;
+	value.it_interval.tv_usec = period%1000000;
+	ret = setitimer (ITIMER_REAL, &amp;value, NULL);
+	if (ret != 0)
+		perror ("Failed to set timer");
+	return ret;
+}
+
+static void wait_period (struct periodic_info *info)
+{
+	int sig;
+
+	/* Wait for the next SIGALRM */
+	sigwait (&amp;(info-&gt;alarm_sig), &amp;sig);
+}
+</pre><p></p></code></div>
+<h2>Conclusion</h2>
+<p>The accuracy of the timers will depend on the your kernel and 
+scheduling policy and priority you use for the threads. By default all 
+time-outs will be rounded up to the nearest 10 ms (actually 1/HZ, but in
+ most cases HZ = 100). If your board support package supports High 
+Resolution Timers (most do) enabling CONFIG_HIGH_RES_TIMERS will give 
+you accuracy to a few microseconds. Periodic threads are almost by 
+definition real-time, so you probably want to give them a real-time 
+policy such as SCHED_FIFO (in a follow-up article I will look into the 
+implications of real-time periodic threads). Finally, if you want to 
+reduce jitter to sub millisecond, you should enable kernel pre-emption 
+(CONFIG_PREEMPT) or for jitter in the 10's to 100's microsecond region 
+you should apply the PREEMPT_RT patch <a href="#ref_2">[2]</a>.</p>
+<p>You can download demonstrations of all three techniques from <a href="http://www.2net.co.uk/downloads/periodic-threads-examples.tar.gz">here</a>.</p>
+<h2>References</h2>
+<p><a name="ref_1">[1] RTAI: the RealTime Application Interface, </a><a href="https://www.rtai.org/">https://www.rtai.org/</a></p>
+<p><a name="ref_2">[2] The PREEMPT_RT real time patch series, </a><a href="http://www.kernel.org/pub/linux/kernel/projects/rt/">http://www.kernel.org/pub/linux/kernel/projects/rt/</a></p>
+  </div>
+
+  <div class="clear-block">
+    <div class="meta">
+          <div class="terms"><ul class="links inline"><li class="taxonomy_term_3 first last"><a href="http://www.2net.co.uk/taxonomy/term/3" rel="tag" title="About POSIX threads">Pthreads</a></li>
+</ul></div>
+        </div>
+
+      </div>
+
+</div>
+<div id="comments">
+  <h2 class="comments">Comments</h2><form action="/tutorial/periodic_threads" accept-charset="UTF-8" method="post" id="comment-controls">
+<div><div class="box">
+
+  <h2>Comment viewing options</h2>
+
+  <div class="content"><div class="container-inline"><input name="form_build_id" id="form--BlygOXYXsUL-Ss61xi14HWZpBonh4C1FftVMzbQASw" value="form--BlygOXYXsUL-Ss61xi14HWZpBonh4C1FftVMzbQASw" type="hidden">
+<input name="form_id" id="edit-comment-controls" value="comment_controls" type="hidden">
+<div class="form-item" id="edit-mode-wrapper">
+ <select name="mode" class="form-select" id="edit-mode"><option value="1">Flat list - collapsed</option><option value="2">Flat list - expanded</option><option value="3">Threaded list - collapsed</option><option value="4" selected="selected">Threaded list - expanded</option></select>
+</div>
+<div class="form-item" id="edit-order-wrapper">
+ <select name="order" class="form-select" id="edit-order"><option value="1">Date - newest first</option><option value="2" selected="selected">Date - oldest first</option></select>
+</div>
+<div class="form-item" id="edit-comments-per-page-wrapper">
+ <select name="comments_per_page" class="form-select" id="edit-comments-per-page"><option value="10">10 comments per page</option><option value="30">30 comments per page</option><option value="50" selected="selected">50 comments per page</option><option value="70">70 comments per page</option><option value="90">90 comments per page</option><option value="150">150 comments per page</option><option value="200">200 comments per page</option><option value="250">250 comments per page</option><option value="300">300 comments per page</option></select>
+</div>
+<input name="op" id="edit-submit" value="Save settings" class="form-submit" type="submit">
+</div><div class="description">Select your preferred way to display the comments and click "Save settings" to activate your changes.</div></div>
+</div>
+
+</div></form>
+<a id="comment-3332"></a>
+<div class="comment comment-published odd">
+
+  <div class="clear-block">
+      <span class="submitted">Tue, 02/23/2010 - 14:56 — csimmonds</span>
+  
+  
+  
+    <h3><a href="http://www.2net.co.uk/tutorial/periodic_threads#comment-3332" class="active">Detecting missed timer events</a></h3>
+
+    <div class="content">
+      <p>One keen reader of my blog pointed out that I had misunderstood
+ they way missed timer events are reported when using timerfd. Just to 
+be clear, when you read, the value is a count of the timer events since 
+the last one, which should be 1, not zero as I stated in an earlier 
+draft. I have updated the article accordingly, and add in a comment 
+about using timer_getoverrun() to do the same thing when you are using 
+timers created with timer_create().</p>
+<p>Bye for now,<br>
+Chris.</p>
+          </div>
+  </div>
+
+      <div class="links"><ul class="links"><li class="comment_reply first last"><a href="http://www.2net.co.uk/comment/reply/9/3332">reply</a></li>
+</ul></div>
+  </div>
+<a id="comment-5514"></a>
+<div class="comment comment-published even">
+
+  <div class="clear-block">
+      <span class="submitted">Sat, 09/15/2012 - 01:32 — Jim Gibbons (not verified)</span>
+  
+  
+  
+    <h3><a href="http://www.2net.co.uk/tutorial/periodic_threads#comment-5514" class="active">periodic timers - POSIX example</a></h3>
+
+    <div class="content">
+      <p>It looks like timer_id should have been in periodic_info.</p>
+          </div>
+  </div>
+
+      <div class="links"><ul class="links"><li class="comment_reply first last"><a href="http://www.2net.co.uk/comment/reply/9/5514">reply</a></li>
+</ul></div>
+  </div>
+<a id="comment-5520"></a>
+<div class="comment comment-published odd">
+
+  <div class="clear-block">
+      <span class="submitted">Mon, 11/26/2012 - 02:34 — Visitor (not verified)</span>
+  
+  
+  
+    <h3><a href="http://www.2net.co.uk/tutorial/periodic_threads#comment-5520" class="active">periodic timers - POSIX example</a></h3>
+
+    <div class="content">
+      <p>timer_id should be in periodic_info stuct or exist as a global variable </p>
+<p>Best regars,<br>
+Rafal</p>
+          </div>
+  </div>
+
+      <div class="links"><ul class="links"><li class="comment_reply first last"><a href="http://www.2net.co.uk/comment/reply/9/5520">reply</a></li>
+</ul></div>
+  </div>
+<a id="comment-5543"></a>
+<div class="comment comment-published even">
+
+  <div class="clear-block">
+      <span class="submitted">Fri, 10/18/2013 - 10:33 — Victor (not verified)</span>
+  
+  
+  
+    <h3><a href="http://www.2net.co.uk/tutorial/periodic_threads#comment-5543" class="active">No file available.</a></h3>
+
+    <div class="content">
+      <p>Hi,</p>
+<p>The file <a href="http://www.2net.co.uk/downloads/periodic-threads-examples.tar.gz" title="http://www.2net.co.uk/downloads/periodic-threads-examples.tar.gz">http://www.2net.co.uk/downloads/periodic-threads-examples.tar.gz</a> is not available to download anymore. Can you uploaded again? Thanks.</p>
+          </div>
+  </div>
+
+      <div class="links"><ul class="links"><li class="comment_reply first last"><a href="http://www.2net.co.uk/comment/reply/9/5543">reply</a></li>
+</ul></div>
+  </div>
+<div class="indented"><a id="comment-5559"></a>
+<div class="comment comment-published odd">
+
+  <div class="clear-block">
+      <span class="submitted">Tue, 10/22/2013 - 08:55 — csimmonds</span>
+  
+  
+  
+    <h3><a href="http://www.2net.co.uk/tutorial/periodic_threads#comment-5559" class="active">Oops. It's there now.</a></h3>
+
+    <div class="content">
+      <p>Oops. It's there now.</p>
+          </div>
+  </div>
+
+      <div class="links"><ul class="links"><li class="comment_reply first last"><a href="http://www.2net.co.uk/comment/reply/9/5559">reply</a></li>
+</ul></div>
+  </div>
+</div><div class="box">
+
+  <h2>Post new comment</h2>
+
+  <div class="content"><form action="/comment/reply/9" accept-charset="UTF-8" method="post" id="comment-form">
+<div><div class="form-item" id="edit-name-wrapper">
+ <label for="edit-name">Your name: </label>
+ <input maxlength="60" name="name" id="edit-name" size="30" value="Visitor" class="form-text" type="text">
+</div>
+<div class="form-item" id="edit-mail-wrapper">
+ <label for="edit-mail">E-mail: </label>
+ <input maxlength="64" name="mail" id="edit-mail" size="30" class="form-text" type="text">
+ <div class="description">The content of this field is kept private and will not be shown publicly.</div>
+</div>
+<div class="form-item" id="edit-homepage-wrapper">
+ <label for="edit-homepage">Homepage: </label>
+ <input maxlength="255" name="homepage" id="edit-homepage" size="30" class="form-text" type="text">
+</div>
+<div class="form-item" id="edit-subject-wrapper">
+ <label for="edit-subject">Subject: </label>
+ <input maxlength="64" name="subject" id="edit-subject" size="60" class="form-text" type="text">
+</div>
+<div class="form-item" id="edit-comment-wrapper">
+ <label for="edit-comment">Comment: <span class="form-required" title="This field is required.">*</span></label>
+ <div class="resizable-textarea"><span><textarea cols="60" rows="15" name="comment" id="edit-comment" class="form-textarea resizable required textarea-processed"></textarea><div style="margin-right: -7px;" class="grippie"></div></span></div>
+</div>
+<ul class="tips"><li>Allowed HTML tags: &lt;a&gt; &lt;em&gt; 
+&lt;strong&gt; &lt;cite&gt; &lt;code&gt; &lt;ul&gt; &lt;ol&gt; 
+&lt;li&gt; &lt;dl&gt; &lt;dt&gt; &lt;dd&gt;</li><li>Youtube and Vimeo video links are automatically converted into embedded videos.</li><li>Lines and paragraphs break automatically.</li><li>Web page addresses and e-mail addresses turn into links automatically.</li><li>You may post code using &lt;code&gt;...&lt;/code&gt; (generic) or &lt;?php ... ?&gt; (highlighted PHP) tags.</li></ul><p><a href="http://www.2net.co.uk/filter/tips">More information about formatting options</a></p><input name="form_build_id" id="form-n3kmLv-H7kDlx8dI2nigRNJCTRXqTAYq8yJmkwAzc6E" value="form-n3kmLv-H7kDlx8dI2nigRNJCTRXqTAYq8yJmkwAzc6E" type="hidden">
+<input name="form_id" id="edit-comment-form" value="comment_form" type="hidden">
+<input name="mollom[contentId]" id="edit-mollom-contentId" value="" class="mollom-content-id" type="hidden">
+<input name="mollom[captchaId]" id="edit-mollom-captchaId" value="" class="mollom-captcha-id" type="hidden">
+<div style="display: none;"><div class="form-item" id="edit-mollom-homepage-wrapper">
+ <input maxlength="128" name="mollom[homepage]" id="edit-mollom-homepage" size="60" autocomplete="off" class="form-text" type="text">
+</div>
+</div><div class="description mollom-privacy">By submitting this form, you accept the <a href="https://mollom.com/web-service-privacy-policy" class="mollom-target" rel="nofollow">Mollom privacy policy</a>.</div><input name="op" id="edit-preview" value="Preview" class="form-submit" type="submit">
+
+</div></form>
+</div>
+</div>
+</div>
+          </div>
+                    <div id="footer">Copyright © 1999-2014 2net Limited. All rights reserved</div>
+      </div></div></div></div> <!-- /.left-corner, /.right-corner, /#squeeze, /#center -->
+
+              <div id="sidebar-right" class="sidebar">
+                    <div id="block-tagadelic-1" class="clear-block block block-tagadelic">
+
+  <h2>Topics</h2>
+
+  <div class="content"><a href="http://www.2net.co.uk/taxonomy/term/13" class="tagadelic level6" rel="tag" title="">Android</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/19" class="tagadelic level3" rel="tag" title="">AOSP</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/20" class="tagadelic level5" rel="tag" title="">BeagleBone Black</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/16" class="tagadelic level1" rel="tag" title="">booting</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/1" class="tagadelic level2" rel="tag" title="Related to Eclipse development environment">Eclipse</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/17" class="tagadelic level3" rel="tag" title="">Embedded</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/21" class="tagadelic level4" rel="tag" title="">fastboot</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/7" class="tagadelic level2" rel="tag" title="">Flash storage</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/12" class="tagadelic level2" rel="tag" title="">i.MX</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/5" class="tagadelic level2" rel="tag" title="The Journaling Flash Filesystem version 2">JFFS2</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/3" class="tagadelic level4" rel="tag" title="About POSIX threads">Pthreads</a> 
+<a href="http://www.2net.co.uk/taxonomy/term/23" class="tagadelic level2" rel="tag" title="">u-boot</a> 
+<div class="more-link"><a href="http://www.2net.co.uk/tagadelic/chunk/1">more tags</a></div></div>
+</div>
+<div id="block-views-recent_articles-block_1" class="clear-block block block-views">
+
+  <h2>Recent articles</h2>
+
+  <div class="content"><div class="view view-recent-articles view-id-recent_articles view-display-id-block_1 view-dom-id-1">
+    
+  
+  
+      <div class="view-content">
+      <div class="item-list">
+    <ul>
+          <li class="views-row views-row-1 views-row-odd views-row-first">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/android-4.4-beaglebone-gapps">Installing Google apps on BeagleBone</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-2 views-row-even">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/android-4.4-beaglebone-update">Updated images for Android KitKat on BeagleBone Black</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-3 views-row-odd">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/android-sparse-image-format">Android sparse image format</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-4 views-row-even">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/android-4.4-beaglebone">KitKat 4.4 AOSP for BeagleBone Black with accelerated graphics</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-5 views-row-odd">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/android-egl-cgf-is-dead">How Android finds OpenGL libraries, and the death of egl.cfg</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-6 views-row-even">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/android-4.3-beaglebone-fastboot">Building Jelly Bean 4.3 AOSP for Beaglebone Black v2.0 - with fastboot</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-7 views-row-odd">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/fastboot-beaglebone">Android fastboot for BeagleBone Black</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-8 views-row-even">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/node/31">Chris Simmonds to speak at ABS 2014 and ELC 2014</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-9 views-row-odd">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/android-4.3-beaglebone">Building Jelly Bean 4.3 AOSP for BeagleBone Black</a></span>
+  </div>
+</li>
+          <li class="views-row views-row-10 views-row-even views-row-last">  
+  <div class="views-field-title">
+                <span class="field-content"><a href="http://www.2net.co.uk/tutorial/ELCE-2013">Slides from "A timeline for embedded Linux"</a></span>
+  </div>
+</li>
+      </ul>
+</div>    </div>
+  
+  
+  
+  
+  
+  
+</div> </div>
+</div>
+<div id="block-user-0" class="clear-block block block-user">
+
+  <h2>User login</h2>
+
+  <div class="content"><form action="/tutorial/periodic_threads?destination=node%2F9" accept-charset="UTF-8" method="post" id="user-login-form">
+<div><div class="form-item" id="edit-name-1-wrapper">
+ <label for="edit-name-1">Username: <span class="form-required" title="This field is required.">*</span></label>
+ <input maxlength="60" name="name" id="edit-name-1" size="15" class="form-text required" type="text">
+</div>
+<div class="form-item" id="edit-pass-wrapper">
+ <label for="edit-pass">Password: <span class="form-required" title="This field is required.">*</span></label>
+ <input name="pass" id="edit-pass" maxlength="60" size="15" class="form-text required" type="password">
+</div>
+<input name="op" id="edit-submit-1" value="Log in" class="form-submit" type="submit">
+<div class="item-list"><ul><li class="first last"><a href="http://www.2net.co.uk/user/password" title="Request new password via e-mail.">Request new password</a></li>
+</ul></div><input name="form_build_id" id="form-XvhKr8PWklWi4Jc7ke0gjNpu59ayyXOdHePc5WbyIeI" value="form-XvhKr8PWklWi4Jc7ke0gjNpu59ayyXOdHePc5WbyIeI" type="hidden">
+<input name="form_id" id="edit-user-login-block" value="user_login_block" type="hidden">
+
+</div></form>
+</div>
+</div>
+        </div>
+      
+    </div> <!-- /container -->
+  </div>
+<!-- /layout -->
+
+  <script type="text/javascript">
+<!--//--><![CDATA[//><!--
+var _gaq = _gaq || [];_gaq.push(["_setAccount", "UA-42496845-1"]);_gaq.push(["_trackPageview"]);(function() {var ga = document.createElement("script");ga.type = "text/javascript";ga.async = true;ga.src = ("https:" == document.location.protocol ? "https://ssl" : "http://www") + ".google-analytics.com/ga.js";var s = document.getElementsByTagName("script")[0];s.parentNode.insertBefore(ga, s);})();
+//--><!]]>
+</script>
+  
+
+</body></html>
