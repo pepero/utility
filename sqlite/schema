@@ -1,0 +1,21 @@
+create table ap(
+	path     VARCHAR, 
+  md  		 VARCHAR, 
+  db 			 VARCHAR,
+  parent_ap_path VARCHAR,
+  FOREIGN KEY(db) REFERENCES db(db_key),
+  FOREIGN KEY(parent_ap_path) REFERENCES ap(path)
+);
+
+create table db(
+  db_key  VARCHAR,
+  attr1		INT,
+  attr2		INT
+);
+
+sqlite> create table track3(
+   ...> id INT PRIMARY KEY,
+   ...> name VARCHAR,
+   ...> ref INT,
+   ...> FOREIGN KEY(ref) REFERENCES track3(id)
+   ...> );
